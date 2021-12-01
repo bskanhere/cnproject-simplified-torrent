@@ -1,4 +1,4 @@
 package cn.torrent.exceptions;
 
-public class HandShakeException extends Throwable {
+public class HandShakeException extends RuntimeException {
 }

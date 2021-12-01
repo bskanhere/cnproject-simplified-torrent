@@ -5,12 +5,12 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class CommonInfo {
-    public int NumberOfPreferredNeighbors;
-    public int UnChokingInterval;
-    public int OptimisticUnChokingInterval;
-    public int FileSize;
-    public int PieceSize;
-    public String FileName;
+    public int numberOfPreferredNeighbors;
+    public int unChokingInterval;
+    public int optimisticUnChokingInterval;
+    public int fileSize;
+    public int pieceSize;
+    public String fileName;
 
     private CommonInfo(final String CfgFilePath) {
         try {
@@ -18,33 +18,32 @@ public class CommonInfo {
 
             String[] strings;
 
-            String NumberOfPreferredNeighborsLine = bufferedReader.readLine();
-            strings = NumberOfPreferredNeighborsLine.split("\\s+");
-            NumberOfPreferredNeighbors = Integer.parseInt(strings[1]);
+            String numberOfPreferredNeighborsLine = bufferedReader.readLine();
+            strings = numberOfPreferredNeighborsLine.split("\\s+");
+            numberOfPreferredNeighbors = Integer.parseInt(strings[1]);
 
-            String UnChokingIntervalLine = bufferedReader.readLine();
-            strings = UnChokingIntervalLine.split("\\s+");
-            UnChokingInterval = Integer.parseInt(strings[1]);
+            String unChokingIntervalLine = bufferedReader.readLine();
+            strings = unChokingIntervalLine.split("\\s+");
+            unChokingInterval = Integer.parseInt(strings[1]);
 
-            String OptimisticUnChokingIntervalLine = bufferedReader.readLine();
-            strings = OptimisticUnChokingIntervalLine.split("\\s+");
-            OptimisticUnChokingInterval = Integer.parseInt(strings[1]);
+            String optimisticUnChokingIntervalLine = bufferedReader.readLine();
+            strings = optimisticUnChokingIntervalLine.split("\\s+");
+            optimisticUnChokingInterval = Integer.parseInt(strings[1]);
 
-            String FileNameLine = bufferedReader.readLine();
-            strings = FileNameLine.split("\\s+");
-            FileName = strings[1];
+            String fileNameLine = bufferedReader.readLine();
+            strings = fileNameLine.split("\\s+");
+            fileName = strings[1];
 
-            String FileSizeLine = bufferedReader.readLine();
-            strings = FileSizeLine.split("\\s+");
-            FileSize = Integer.parseInt(strings[1]);
+            String fileSizeLine = bufferedReader.readLine();
+            strings = fileSizeLine.split("\\s+");
+            fileSize = Integer.parseInt(strings[1]);
 
-            String PieceSizeLine = bufferedReader.readLine();
-            strings = PieceSizeLine.split("\\s+");
-            PieceSize = Integer.parseInt(strings[1]);
+            String pieceSizeLine = bufferedReader.readLine();
+            strings = pieceSizeLine.split("\\s+");
+            pieceSize = Integer.parseInt(strings[1]);
 
         } catch (IOException e) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
+            //Todo: Add Logger
         }
     }
 

@@ -1,142 +1,146 @@
 package cn.torrent;
 
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.time.LocalTime;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class Logger {
 
-  private PrintWriter printWriter;
+    private PrintWriter printWriter;
 
-  public Logger(final String logFilePath) {
-    try {
-      printWriter = new PrintWriter(logFilePath);
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
+    public Logger(final String logFilePath) {
+        try {
+            printWriter = new PrintWriter(logFilePath);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
-  }
 
-  public synchronized void connection(final int peer1, final int peer2) throws IOException {
-    printWriter.printf(
-        "%s : Peer %s makes a connection to Peer %s.\n", LocalTime.now(), peer1, peer2);
-  }
+    public synchronized void makesConnection(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s makes a connection to Peer %s.\n", LocalDateTime.now(), self, peer);
+    }
 
-  public synchronized void connected(final int peer1, final int peer2) {
-    printWriter.printf(
-        "%s : Peer %s is connected from Peer %s.\n", LocalTime.now(), peer1, peer2);
-  }
+    public synchronized void isConnected(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s is connected from Peer %s.\n", LocalDateTime.now(), self, peer);
+    }
 
-  public synchronized void error(String message, Exception e) {
-    printWriter.printf(message);
-    e.printStackTrace(printWriter);
-  }
+    public synchronized void error(Exception e) {
+        printWriter.printf(e.getMessage());
+        e.printStackTrace(printWriter);
+    }
 
+    public synchronized void changesPreferredNeighbors(final int peer, List<Integer> preferredNeighbors) {
+        String preferredNeighborsString = preferredNeighbors.stream().map(Objects::toString).collect(Collectors.joining(", "));
+        printWriter.printf(
+                "%s : Peer %s has the preferred neighbors %s.\n", LocalDateTime.now(), peer, preferredNeighborsString);
+    }
 
-  public synchronized void unChoke(final int peer1, final int neighbor) {
-    printWriter.printf("%s : uf.Peer %s is unchoked by %s.\n", LocalTime.now(), peer1, neighbor);
-  }
-
-  public synchronized void sendUnChoke(final int peer1, final int neighbor) {
-    printWriter.printf("%s : uf.Peer %s sent unchoke to %s.\n", LocalTime.now(), peer1, neighbor);
-  }
-
-  public synchronized void choke(final int peer1, final int neighbor) {
-    printWriter.printf("%s : uf.Peer %s is choked by %s.\n", LocalTime.now(), peer1, neighbor);
-  }
-
-  public synchronized void sendChoke(final int peer1, final int neighbor) {
-    printWriter.printf("%s : uf.Peer %s sent choke to %s.\n", LocalTime.now(), peer1, neighbor);
-  }
-
-  public synchronized void sendBitField(final int neigh, final BitField bitField) {
-    printWriter.printf(
-            "%s : sent a bitfield to %s with file %s \n",
-            LocalTime.now(), neigh, bitField.isFull() ? "FULL" : "EMPTY");
-  }
-
-  public synchronized void gotBitField(final int neigh, final BitField bitField) {
-    printWriter.printf(
-            "%s : received a bitfield from %s with file %s \n",
-            LocalTime.now(), neigh, bitField.isFull() ? "FULL" : "EMPTY");
-  }
-
-  public synchronized void request(final int peer1, final int request) {
-    printWriter.printf("%s : uf.Peer %s requested %s.\n", LocalTime.now(), peer1, request);
-  }
-
-  public synchronized void sendRequest(final int peer1, final int request) {
-    printWriter.printf("%s : requesting %s from %s.\n", LocalTime.now(), request, peer1);
-  }
-
-  public synchronized void optimisticallyUnChoking(final int peer1, final int neighbor) {
-    printWriter.printf(
-            "%s : uf.Peer %s has the optimistically unchoked neighbor %s.\n",
-            LocalTime.now(), peer1, neighbor);
-  }
+    public synchronized void changesOptimisticallyUnChokedNeighbor(final int self, final int peer) {
+        printWriter.printf("%s: Peer %s has the optimistically unchoked neighbor %s.\n", LocalDateTime.now(), self, peer);
+    }
 
 
-  public synchronized void have(final int peer1, final int peer2, final int pieceIndex) {
-    printWriter.printf(
-            "%s : uf.Peer %s received the ‘have’ message from %s for the piece %s.\n",
-            LocalTime.now(), peer1, peer2, pieceIndex);
-  }
+    public synchronized void unChoke(final int self, final int peer) {
+        printWriter.printf("%s : Peer %s is unchoked by %s.\n", LocalDateTime.now(), self, peer);
+    }
 
-  public synchronized void sendInterested(final int peer1, final int peer2) {
-    printWriter.printf(
-            "%s : uf.Peer %s send ‘interested’ message to %s.\n", LocalTime.now(), peer1, peer2);
-  }
+    public synchronized void sendUnChoke(final int self, final int peer) {
+        printWriter.printf("%s : Peer %s sent unchoke to %s.\n", LocalDateTime.now(), self, peer);
+    }
 
-  public synchronized void sendNotInterested(final int peer1, final int peer2) {
-    printWriter.printf(
-            "%s : uf.Peer %s sent ‘not interested’ message to %s.\n", LocalTime.now(), peer1, peer2);
-  }
+    public synchronized void choke(final int self, final int peer) {
+        printWriter.printf("%s : Peer %s is choked by %s.\n", LocalDateTime.now(), self, peer);
+    }
 
-  public synchronized void interested(final int peer1, final int peer2) {
-    printWriter.printf(
-            "%s : uf.Peer %s received the ‘interested’ message from %s.\n",
-            LocalTime.now(), peer1, peer2);
-  }
+    public synchronized void sendChoke(final int self, final int peer) {
+        printWriter.printf("%s : Peer %s sent choke to %s.\n", LocalDateTime.now(), self, peer);
+    }
 
-  public synchronized void notInterested(final int peer1, final int peer2) {
-    printWriter.printf(
-            "%s : uf.Peer %s received the ‘not interested’ message from %s.\n",
-            LocalTime.now(), peer1, peer2);
-  }
+    public synchronized void sendBitField(final int peer, final BitField bitField) {
+        printWriter.printf(
+                "%s : sent a bitfield to %s with file %s \n",
+                LocalDateTime.now(), peer, bitField.isFull() ? "FULL" : "EMPTY");
+    }
+
+    public synchronized void gotBitField(final int peer, final BitField bitField) {
+        printWriter.printf(
+                "%s : received a bitfield from %s with file %s \n",
+                LocalDateTime.now(), peer, bitField.isFull() ? "FULL" : "EMPTY");
+    }
+
+    public synchronized void request(final int self, final int request) {
+        printWriter.printf("%s : Peer %s requested %s.\n", LocalDateTime.now(), self, request);
+    }
+
+    public synchronized void sendRequest(final int self, final int request) {
+        printWriter.printf("%s : requesting %s from %s.\n", LocalDateTime.now(), request, self);
+    }
+
+    public synchronized void have(final int self, final int peer, final int pieceIndex) {
+        printWriter.printf(
+                "%s : Peer %s received the ‘have’ message from %s for the piece %s.\n",
+                LocalDateTime.now(), self, peer, pieceIndex);
+    }
+
+    public synchronized void sendInterested(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s send ‘interested’ message to %s.\n", LocalDateTime.now(), self, peer);
+    }
+
+    public synchronized void sendNotInterested(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s sent ‘not interested’ message to %s.\n", LocalDateTime.now(), self, peer);
+    }
+
+    public synchronized void interested(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s received the ‘interested’ message from %s.\n",
+                LocalDateTime.now(), self, peer);
+    }
+
+    public synchronized void notInterested(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s received the ‘not interested’ message from %s.\n",
+                LocalDateTime.now(), self, peer);
+    }
 
 
-  public synchronized void sentPiece(final int neigh, final int pieceIndex) {
-    printWriter.printf("%s : sent piece %s to %s \n", LocalTime.now(), pieceIndex, neigh);
-  }
+    public synchronized void sentPiece(final int peer, final int pieceIndex) {
+        printWriter.printf("%s : sent piece %s to %s \n", LocalDateTime.now(), pieceIndex, peer);
+    }
 
-  public synchronized void download(
-          final int peer1, final int peer2, final int pieceIndex, final int numPieces) {
-    printWriter.printf(
-            "%s : uf.Peer %s has downloaded the piece %s from %s. Now the number of pieces it has is %s.\n",
-            LocalTime.now(), peer1, pieceIndex, peer2, numPieces);
-  }
+    public synchronized void download(
+            final int self, final int peer, final int pieceIndex, final int numPieces) {
+        printWriter.printf(
+                "%s : Peer %s has downloaded the piece %s from %s. Now the number of pieces it has is %s.\n",
+                LocalDateTime.now(), self, pieceIndex, peer, numPieces);
+    }
 
-  public synchronized void complete(final int peer1) {
-    printWriter.printf(
-            "%s : uf.Peer %s has downloaded the complete file.\n", LocalTime.now(), peer1);
-  }
+    public synchronized void complete(final int self) {
+        printWriter.printf(
+                "%s : Peer %s has downloaded the complete file.\n", LocalDateTime.now(), self);
+    }
 
-  public synchronized void sendHave(final int peer, final int index) {
-    printWriter.printf("%s : send have to %s index: %s \n", LocalTime.now(), peer, index);
-  }
+    public synchronized void sendHave(final int peer, final int index) {
+        printWriter.printf("%s : send have to %s index: %s \n", LocalDateTime.now(), peer, index);
+    }
 
-  public synchronized void finishHandle(final int peer1, final int neigh) {
-    printWriter.printf(
-            "%s : uf.Peer %s has downloaded the complete file from %s\n", LocalTime.now(), peer1, neigh);
-  }
+    public synchronized void finishHandle(final int self, final int peer) {
+        printWriter.printf(
+                "%s : Peer %s has downloaded the complete file from %s\n", LocalDateTime.now(), self, peer);
+    }
 
-  public void close() {
-    printWriter.close();
-  }
+    public void close() {
+        printWriter.close();
+    }
 
-  public void flush() {
-    printWriter.flush();
-  }
+    public void flush() {
+        printWriter.flush();
+    }
 
 }

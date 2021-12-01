@@ -1,5 +1,6 @@
 package cn.torrent;
 
+import cn.torrent.enums.MessageType;
 import cn.torrent.exceptions.HandShakeException;
 
 import java.io.DataInputStream;
@@ -11,15 +12,6 @@ import java.nio.ByteBuffer;
 public class MessageIO {
     public static final int INT_LENGTH = 4;
     public static final int TYPE_LENGTH = 1;
-    public static final byte CHOKE = 0;
-    public static final byte UNCHOKE = 1;
-    public static final byte INTERESTED = 2;
-    public static final byte NOT_INTERESTED = 3;
-    public static final byte HAVE = 4;
-    public static final byte BITFIELD = 5;
-    public static final byte REQUEST = 6;
-    public static final byte PIECE = 7;
-    public static final byte INVALID = 8;
     private static final String HANDSHAKE_HEADER = "P2PFILESHARINGPROJ0000000000";
 
     private final DataInputStream in;
@@ -82,7 +74,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH + byteArray.length;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(byteArray.length);
-        buf.put(BITFIELD);
+        buf.put(MessageType.BITFIELD.value);
         buf.put(byteArray);
         out.write(buf.array());
     }
@@ -95,7 +87,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH + INT_LENGTH;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(INT_LENGTH);
-        buf.put(HAVE);
+        buf.put(MessageType.HAVE.value);
         buf.putInt(haveIndex);
         out.write(buf.array());
     }
@@ -108,7 +100,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH + INT_LENGTH;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(INT_LENGTH);
-        buf.put(REQUEST);
+        buf.put(MessageType.REQUEST.value);
         buf.putInt(requestIndex);
         out.write(buf.array());
     }
@@ -127,7 +119,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH + INT_LENGTH + piece.bytes.length;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(INT_LENGTH + piece.bytes.length);
-        buf.put(PIECE);
+        buf.put(MessageType.PIECE.value);
         buf.putInt(piece.pieceIndex);
         buf.put(piece.bytes);
         out.write(buf.array());
@@ -137,7 +129,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(0);
-        buf.put(CHOKE);
+        buf.put(MessageType.CHOKE.value);
         out.write(buf.array());
     }
 
@@ -145,7 +137,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(0);
-        buf.put(UNCHOKE);
+        buf.put(MessageType.UNCHOKE.value);
         out.write(buf.array());
     }
 
@@ -153,7 +145,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(0);
-        buf.put(INTERESTED);
+        buf.put(MessageType.INTERESTED.value);
         out.write(buf.array());
     }
 
@@ -161,7 +153,7 @@ public class MessageIO {
         int length = INT_LENGTH + TYPE_LENGTH;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(0);
-        buf.put(NOT_INTERESTED);
+        buf.put(MessageType.NOT_INTERESTED.value);
         out.write(buf.array());
     }
 }

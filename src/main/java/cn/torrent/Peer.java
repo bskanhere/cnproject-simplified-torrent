@@ -1,5 +1,6 @@
 package cn.torrent;
 
+import cn.torrent.enums.ChokeStatus;
 import cn.torrent.exceptions.HandShakeException;
 
 import java.io.IOException;
@@ -14,10 +15,10 @@ public class Peer {
     private final PeersInfo peersInfo;
     private final int peerID;
     private final ArrayList<Thread> threadPool;
-    final ArrayList<MessageIO> serverIOHandlers = new ArrayList<>();
-    final ArrayList<MessageIO> IOHandlers = new ArrayList<>();
-    HashMap<Integer, MessageIO> IOHandlersMap = new HashMap<>();
-    PeerState state;
+    private final ArrayList<MessageIO> serverIOHandlers = new ArrayList<>();
+    private final ArrayList<MessageIO> IOHandlers = new ArrayList<>();
+    private HashMap<Integer, MessageIO> IOHandlersMap = new HashMap<>();
+    private PeerState state;
 
     public Peer(
             final int peerID,
@@ -64,7 +65,7 @@ public class Peer {
 
         sendBitField();
 
-        FileHandler fileHandler = new FileHandler(commonInfo.FileName);
+        FileHandler fileHandler = new FileHandler(commonInfo.fileName);
         for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
             try {
                 PeerHandler peerHandler = new PeerHandler(state, set.getKey(), fileHandler, logger);
@@ -80,13 +81,13 @@ public class Peer {
         Timer optimisticNeighbourTimer = new Timer();
 
         preferredNeighbourTimer.scheduleAtFixedRate(
-                new PreferredNeighborSelectionTimerTask(state, logger),
+                new SelectPreferredNeighborTimer(state, logger),
                 0,
-                commonInfo.UnChokingInterval * 1000);
+                commonInfo.unChokingInterval * 1000);
         optimisticNeighbourTimer.scheduleAtFixedRate(
-                new OptimisticNeighborSelectionTimerTask(state, logger),
+                new SelectOptimisticallyUnChokedNeighborTimer(state, logger),
                 0,
-                commonInfo.OptimisticUnChokingInterval * 1000);
+                commonInfo.optimisticUnChokingInterval * 1000);
 
         for (Thread thread : threadPool) {
             thread.start();
@@ -108,11 +109,10 @@ public class Peer {
             }
         }
 
-
+        logger.complete(peerID);
         logger.close();
     }
 
-    // Make this private when not testing
     public Socket connect(final String ipAddress, final int port) throws IOException {
         return new Socket(ipAddress, port);
     }
@@ -122,7 +122,7 @@ public class Peer {
             try {
                 Socket clientSocket = connect(peerServerInfo.ipAddress, peerServerInfo.port);
                 IOHandlers.add(new MessageIO(clientSocket));
-                logger.connection(peerID, peerServerInfo.peerID);
+                logger.makesConnection(peerID, peerServerInfo.peerID);
             } catch (IOException e) {
                 e.printStackTrace();
                 System.out.println(peerID + " Cant connect to " + peerServerInfo.peerID);
@@ -150,7 +150,7 @@ public class Peer {
                 Optional<PeerInfo> clientPeer =
                         after.stream().filter(peerInfo -> peerInfo.peerID == receivedPeerID).findFirst();
                 if (clientPeer.isPresent()) {
-                    logger.connected(currentPeerInfo.peerID, receivedPeerID);
+                    logger.isConnected(currentPeerInfo.peerID, receivedPeerID);
                 }
             } catch (IOException | HandShakeException e) {
                 e.printStackTrace();
@@ -198,11 +198,11 @@ class Acceptor implements Runnable {
     }
 }
 
-class PreferredNeighborSelectionTimerTask extends TimerTask {
+class SelectPreferredNeighborTimer extends TimerTask {
     final PeerState state;
     final Logger logger;
 
-    public PreferredNeighborSelectionTimerTask(final PeerState state, Logger logger) {
+    public SelectPreferredNeighborTimer(final PeerState state, Logger logger) {
         this.state = state;
         this.logger = logger;
     }
@@ -210,42 +210,46 @@ class PreferredNeighborSelectionTimerTask extends TimerTask {
     @Override
     public void run() {
         state.updatePreferredNeighbors();
+        List<Integer> preferredNeighbors = new ArrayList<>();
         for (PeerInfo peerInfo : state.getPeersInfo()) {
             if (peerInfo.peerID == state.peerID) continue;
             MessageIO io = state.getIOHandlerPeer(peerInfo.peerID);
             try {
-                if (state.neighbourChokeStatus.get(peerInfo.peerID) == PeerState.ChokeStatus.CHOKED) {
+                if (state.neighbourChokeStatus.get(peerInfo.peerID) == ChokeStatus.CHOKED) {
                     io.writeChoke();
                     logger.sendChoke(state.peerID, peerInfo.peerID);
                 } else {
                     io.writeUnChoke();
                     logger.sendUnChoke(state.peerID, peerInfo.peerID);
+                    preferredNeighbors.add(peerInfo.peerID);
                 }
             } catch (IOException e) {
                 break;
             }
         }
+        if (preferredNeighbors.size() > 0)
+            logger.changesPreferredNeighbors(state.peerID, preferredNeighbors);
     }
 }
 
 
-class OptimisticNeighborSelectionTimerTask extends TimerTask {
+class SelectOptimisticallyUnChokedNeighborTimer extends TimerTask {
     final PeerState state;
     final Logger logger;
 
-    OptimisticNeighborSelectionTimerTask(PeerState state, Logger logger) {
+    SelectOptimisticallyUnChokedNeighborTimer(PeerState state, Logger logger) {
         this.state = state;
         this.logger = logger;
     }
 
     @Override
     public void run() {
-        Optional<Integer> opUnchokedPeer = state.updateOptimisticNeighbor();
-        if (opUnchokedPeer.isPresent()) {
-            MessageIO io = state.getIOHandlerPeer(opUnchokedPeer.get());
+        Optional<Integer> optimisticUnchokedPeer = state.updateOptimisticNeighbor();
+        if (optimisticUnchokedPeer.isPresent()) {
+            MessageIO io = state.getIOHandlerPeer(optimisticUnchokedPeer.get());
             try {
                 io.writeUnChoke();
-                logger.optimisticallyUnChoking(state.peerID, opUnchokedPeer.get());
+                logger.changesOptimisticallyUnChokedNeighbor(state.peerID, optimisticUnchokedPeer.get());
             } catch (IOException ignored) {
             }
         }
