@@ -7,11 +7,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Optional;
 
-public class PeersInfo {
+public class PeersConfig {
 
     public final ArrayList<PeerInfo> peerList = new ArrayList<>();
 
-    private PeersInfo(final ArrayList<PeerInfo> peersInfoList) {
+    private PeersConfig(final ArrayList<PeerInfo> peersInfoList) {
         peerList.addAll(peersInfoList);
     }
 
@@ -49,7 +49,7 @@ public class PeersInfo {
         return res;
     }
 
-    public static PeersInfo from(final String peerInfoFilePath) throws IOException {
+    public static PeersConfig from(final String peerInfoFilePath) throws IOException {
         ArrayList<PeerInfo> peerList = new ArrayList<>();
         BufferedReader bufferedReader = new BufferedReader(new FileReader(peerInfoFilePath));
         String currentLine;
@@ -62,6 +62,6 @@ public class PeersInfo {
             PeerInfo peer = new PeerInfo(peerID, ipAddress, port, hasFile);
             peerList.add(peer);
         }
-        return new PeersInfo(peerList);
+        return new PeersConfig(peerList);
     }
 }

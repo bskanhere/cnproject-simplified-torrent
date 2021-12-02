@@ -191,7 +191,7 @@ public class PeerHandler implements Runnable {
 
     private void sendPiece(int requestIndex) {
         byte[] pieceBytes =
-                fileHandler.get(requestIndex * state.commonInfo.pieceSize, state.commonInfo.pieceSize);
+                fileHandler.get(requestIndex * state.commonConfig.pieceSize, state.commonConfig.pieceSize);
         try {
             io.writePiece(new Piece(requestIndex, pieceBytes));
             logger.sentPiece(peerID, requestIndex);
@@ -207,7 +207,7 @@ public class PeerHandler implements Runnable {
             state.setHavePiece(state.peerID, piece.pieceIndex);
             requested.remove(Integer.valueOf(piece.pieceIndex));
             byte[] bytes = new byte[piece.bytes.length + 1];
-            fileHandler.set(piece.bytes, piece.pieceIndex * state.commonInfo.pieceSize);
+            fileHandler.set(piece.bytes, piece.pieceIndex * state.commonConfig.pieceSize);
             gotHavePieceIndexes.remove(Integer.valueOf(piece.pieceIndex));
             logger.downloadedPiece(state.peerID, peerID, piece.pieceIndex, state.getHaveCounter(state.peerID));
             sendHave(piece.pieceIndex);

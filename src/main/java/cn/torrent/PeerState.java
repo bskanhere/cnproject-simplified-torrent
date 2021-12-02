@@ -1,8 +1,8 @@
 package cn.torrent;
 
-import cn.torrent.config.CommonInfo;
+import cn.torrent.config.CommonConfig;
 import cn.torrent.config.PeerInfo;
-import cn.torrent.config.PeersInfo;
+import cn.torrent.config.PeersConfig;
 import cn.torrent.enums.ChokeStatus;
 import cn.torrent.enums.PieceStatus;
 
@@ -12,8 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PeerState {
     public final int peerID;
     public final int numPieces;
-    public final CommonInfo commonInfo;
-    private final PeersInfo peersInfo;
+    public final CommonConfig commonConfig;
+    private final PeersConfig peersConfig;
     private final HashMap<Integer, ArrayList<PieceStatus>> bitField = new HashMap<>();
     private final HashMap<Integer,Integer> pieceCounter = new HashMap<>();
 
@@ -28,17 +28,17 @@ public class PeerState {
 
     private PeerState(
             final int peerID,
-            final CommonInfo commonInfo,
-            final PeersInfo peersInfo,
+            final CommonConfig commonConfig,
+            final PeersConfig peersConfig,
             HashMap<Integer, MessageIO> IOHandlers) {
         this.peerID = peerID;
-        this.commonInfo = commonInfo;
-        this.peersInfo = peersInfo;
+        this.commonConfig = commonConfig;
+        this.peersConfig = peersConfig;
         this.IOHandlers = IOHandlers;
         numPieces =
-                commonInfo.fileSize / commonInfo.pieceSize
-                        + (commonInfo.fileSize % commonInfo.pieceSize == 0 ? 0 : 1);
-        for (PeerInfo peerInfo : peersInfo.peerList) {
+                commonConfig.fileSize / commonConfig.pieceSize
+                        + (commonConfig.fileSize % commonConfig.pieceSize == 0 ? 0 : 1);
+        for (PeerInfo peerInfo : peersConfig.peerList) {
             ArrayList<PieceStatus> bitset = new ArrayList<>(Arrays.asList(new PieceStatus[numPieces]));
             if (peerInfo.hasFile) {
                 pieceCounter.put(peerInfo.peerID, numPieces);
@@ -58,13 +58,13 @@ public class PeerState {
 
     public static PeerState from(
             final int peerID,
-            final CommonInfo commonInfo,
-            final PeersInfo peersInfo, final HashMap<Integer, MessageIO> IOHandlers) {
-        return new PeerState(peerID, commonInfo, peersInfo, IOHandlers);
+            final CommonConfig commonConfig,
+            final PeersConfig peersConfig, final HashMap<Integer, MessageIO> IOHandlers) {
+        return new PeerState(peerID, commonConfig, peersConfig, IOHandlers);
     }
 
-    public ArrayList<PeerInfo> getPeersInfo() {
-        return peersInfo.peerList;
+    public ArrayList<PeerInfo> getPeersConfig() {
+        return peersConfig.peerList;
     }
 
     public synchronized void setHavePiece(final int peerID, final int index) {
@@ -109,7 +109,7 @@ public class PeerState {
     }
 
     public synchronized boolean areAllDone() {
-        return doneCounter == peersInfo.size();
+        return doneCounter == peersConfig.size();
     }
 
     public synchronized boolean checkMissingAndRequestIt(final int peerID, final int index) {
@@ -142,7 +142,7 @@ public class PeerState {
             Collections.sort(downloadCounterList);
         }
         neighbourChokeStatus.entrySet().forEach(status -> status.setValue(ChokeStatus.CHOKED));
-        int numPreferredNeighbors = commonInfo.numberOfPreferredNeighbors;
+        int numPreferredNeighbors = commonConfig.numberOfPreferredNeighbors;
         int unchokedCounter = 0;
         for (DownloadCounterPeerIdPair highDownloadPeer : downloadCounterList) {
             if (interested.contains(highDownloadPeer.peerID)) {

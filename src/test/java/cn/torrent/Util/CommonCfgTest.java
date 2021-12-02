@@ -1,6 +1,6 @@
 package cn.torrent.Util;
 
-import cn.torrent.config.CommonInfo;
+import cn.torrent.config.CommonConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -9,7 +9,7 @@ import java.io.IOException;
 public class CommonCfgTest {
     @Test
     public void readCfgFile() throws IOException {
-        CommonInfo commonCfg = CommonInfo.from("src/test/resources/Common.cfg");
+        CommonConfig commonCfg = CommonConfig.from("src/test/resources/Common.cfg");
         Assert.assertEquals(commonCfg.numberOfPreferredNeighbors, 2);
         Assert.assertEquals(commonCfg.unChokingInterval, 5);
         Assert.assertEquals(commonCfg.optimisticUnChokingInterval, 15);

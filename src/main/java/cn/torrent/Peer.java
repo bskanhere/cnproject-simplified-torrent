@@ -1,10 +1,11 @@
 package cn.torrent;
 
-import cn.torrent.config.CommonInfo;
+import cn.torrent.config.CommonConfig;
 import cn.torrent.config.PeerInfo;
-import cn.torrent.config.PeersInfo;
-import cn.torrent.enums.ChokeStatus;
+import cn.torrent.config.PeersConfig;
 import cn.torrent.exceptions.HandShakeException;
+import cn.torrent.tasks.SelectOptimisticallyUnChokedNeighborTimer;
+import cn.torrent.tasks.SelectPreferredNeighborTimer;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -13,9 +14,9 @@ import java.util.*;
 
 public class Peer {
 
-    private final CommonInfo commonInfo;
+    private final CommonConfig commonConfig;
     private final Logger logger;
-    private final PeersInfo peersInfo;
+    private final PeersConfig peersConfig;
     private final int peerID;
     private final ArrayList<Thread> threadPool;
     private final ArrayList<MessageIO> serverIOHandlers = new ArrayList<>();
@@ -25,35 +26,31 @@ public class Peer {
 
     public Peer(
             final int peerID,
-            final CommonInfo commonInfo,
-            final PeersInfo peersInfo,
+            final CommonConfig commonConfig,
+            final PeersConfig peersConfig,
             final String logPath) {
         this.peerID = peerID;
-        this.commonInfo = commonInfo;
-        this.peersInfo = peersInfo;
+        this.commonConfig = commonConfig;
+        this.peersConfig = peersConfig;
         this.logger = new Logger(logPath);
         this.threadPool = new ArrayList<>();
     }
 
     public void run() {
-        // get my peer info
-        Optional<PeerInfo> currentPeerInfo = peersInfo.get(peerID);
+        Optional<PeerInfo> currentPeerInfo = peersConfig.get(peerID);
         if (!currentPeerInfo.isPresent()) {
             throw new IllegalArgumentException("peerID is invalid");
         }
-        // Data
-        ArrayList<PeerInfo> serversBefore = peersInfo.before(peerID);
-        ArrayList<PeerInfo> serversAfter = peersInfo.after(peerID);
 
-        // My server
+        ArrayList<PeerInfo> serversBefore = peersConfig.before(peerID);
+        ArrayList<PeerInfo> serversAfter = peersConfig.after(peerID);
+
         Acceptor acceptor = new Acceptor(currentPeerInfo.get().port, serversAfter.size(), serverIOHandlers);
         Thread acceptThread = new Thread(acceptor);
         acceptThread.start();
 
-        // Connect to clients
         makeConnections(serversBefore);
 
-        // Finish server accepting
         try {
             acceptThread.join();
         } catch (InterruptedException e) {
@@ -64,11 +61,11 @@ public class Peer {
 
         performHandshake(currentPeerInfo.get(), serversAfter);
 
-        state = PeerState.from(peerID, commonInfo, peersInfo, IOHandlersMap);
+        state = PeerState.from(peerID, commonConfig, peersConfig, IOHandlersMap);
 
         sendBitField();
 
-        FileHandler fileHandler = new FileHandler(commonInfo.fileName);
+        FileHandler fileHandler = new FileHandler(commonConfig.fileName);
         for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
             try {
                 PeerHandler peerHandler = new PeerHandler(state, set.getKey(), fileHandler, logger);
@@ -86,11 +83,11 @@ public class Peer {
         preferredNeighbourTimer.scheduleAtFixedRate(
                 new SelectPreferredNeighborTimer(state, logger),
                 0,
-                commonInfo.unChokingInterval * 1000);
+                commonConfig.unChokingInterval * 1000);
         optimisticNeighbourTimer.scheduleAtFixedRate(
                 new SelectOptimisticallyUnChokedNeighborTimer(state, logger),
                 0,
-                commonInfo.optimisticUnChokingInterval * 1000);
+                commonConfig.optimisticUnChokingInterval * 1000);
 
         for (Thread thread : threadPool) {
             thread.start();
@@ -145,7 +142,6 @@ public class Peer {
             }
         }
 
-        // Read handshake and set map<peer,socket>
         for (MessageIO io : IOHandlers) {
             try {
                 int receivedPeerID = io.readHandShakeMessage();
@@ -160,18 +156,6 @@ public class Peer {
             }
         }
     }
-    //TODO
-    /*private void sendBitField() {
-        for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
-            try {
-                BitField myBitField = state.getBitFieldOfPeer(peerID);
-                set.getValue().writeBitField(myBitField);
-                logger.sendBitField(set.getKey(), myBitField);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }*/
 
     private void sendBitField() {
         for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
@@ -213,61 +197,8 @@ class Acceptor implements Runnable {
     }
 }
 
-class SelectPreferredNeighborTimer extends TimerTask {
-    final PeerState state;
-    final Logger logger;
-
-    public SelectPreferredNeighborTimer(final PeerState state, Logger logger) {
-        this.state = state;
-        this.logger = logger;
-    }
-
-    @Override
-    public void run() {
-        state.updatePreferredNeighbors();
-        List<Integer> preferredNeighbors = new ArrayList<>();
-        for (PeerInfo peerInfo : state.getPeersInfo()) {
-            if (peerInfo.peerID == state.peerID) continue;
-            MessageIO io = state.getIOHandlerPeer(peerInfo.peerID);
-            try {
-                if (state.neighbourChokeStatus.get(peerInfo.peerID) == ChokeStatus.CHOKED) {
-                    io.writeChoke();
-                    logger.sendChoke(state.peerID, peerInfo.peerID);
-                } else {
-                    io.writeUnChoke();
-                    logger.sendUnChoke(state.peerID, peerInfo.peerID);
-                    preferredNeighbors.add(peerInfo.peerID);
-                }
-            } catch (IOException e) {
-                break;
-            }
-        }
-        if (preferredNeighbors.size() > 0)
-            logger.changesPreferredNeighbors(state.peerID, preferredNeighbors);
-    }
-}
 
 
-class SelectOptimisticallyUnChokedNeighborTimer extends TimerTask {
-    final PeerState state;
-    final Logger logger;
 
-    SelectOptimisticallyUnChokedNeighborTimer(PeerState state, Logger logger) {
-        this.state = state;
-        this.logger = logger;
-    }
 
-    @Override
-    public void run() {
-        Optional<Integer> optimisticUnchokedPeer = state.updateOptimisticNeighbor();
-        if (optimisticUnchokedPeer.isPresent()) {
-            MessageIO io = state.getIOHandlerPeer(optimisticUnchokedPeer.get());
-            try {
-                io.writeUnChoke();
-                logger.changesOptimisticallyUnChokedNeighbor(state.peerID, optimisticUnchokedPeer.get());
-            } catch (IOException ignored) {
-            }
-        }
-    }
-}
 
