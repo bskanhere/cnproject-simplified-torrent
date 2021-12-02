@@ -1,4 +1,4 @@
-package cn.torrent;
+package cn.torrent.config;
 
 public class PeerInfo {
     public final int peerID;

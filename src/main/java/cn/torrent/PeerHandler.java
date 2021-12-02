@@ -97,11 +97,13 @@ public class PeerHandler implements Runnable {
 
     private void handleBitField(int len) throws IOException {
         byte[] bitFieldBytes = io.readBitField(len);
-        BitField receivedBitField = state.getBitFieldOfPeer(peerID);
-        receivedBitField.setBitField(bitFieldBytes);
-        logger.gotBitField(peerID, receivedBitField);
+        //BitField receivedBitField = state.getBitFieldOfPeer(peerID);
+        //receivedBitField.setBitField(bitFieldBytes);
+        state.setBitFieldOfPeer(peerID, bitFieldBytes);
+        //logger.gotBitField(peerID, receivedBitField);
+        logger.receivedBitField(peerID);
         boolean amIInterested = false;
-        if (receivedBitField.isFull()) {
+        if (state.getHaveCounter(peerID) == state.numPieces) {
             for (int i = 0; i < state.numPieces; i++) {
                 gotHavePieceIndexes.add(i);
             }
@@ -120,7 +122,7 @@ public class PeerHandler implements Runnable {
     }
 
     private void handleInterested() throws IOException {
-        logger.interested(state.peerID, peerID);
+        logger.receivedInterested(state.peerID, peerID);
         state.addInterested(peerID);
     }
 
@@ -138,17 +140,17 @@ public class PeerHandler implements Runnable {
     }
 
     private void handleNotInterested() throws IOException {
-        logger.notInterested(state.peerID, peerID);
+        logger.receivedNotInterested(state.peerID, peerID);
     }
 
     private void handleUnchoke() throws IOException {
-        logger.unChoke(state.peerID, peerID);
+        logger.receivedUnChoke(state.peerID, peerID);
         state.myChokeStatus.put(peerID, ChokeStatus.UNCHOKED);
         sendRequest();
     }
 
     private void handleChoke() {
-        logger.choke(state.peerID, peerID);
+        logger.receivedChoke(state.peerID, peerID);
         for (int requestedIndex : requested) {
             state.setMissingPiece(state.peerID, requestedIndex);
         }
@@ -181,7 +183,7 @@ public class PeerHandler implements Runnable {
 
     private void handleRequest() throws IOException {
         int requestIndex = io.readRequest();
-        logger.request(peerID, requestIndex);
+        logger.receivedRequest(peerID, requestIndex);
         if (state.neighbourChokeStatus.get(peerID) == ChokeStatus.UNCHOKED) {
             sendPiece(requestIndex);
         }
@@ -207,7 +209,7 @@ public class PeerHandler implements Runnable {
             byte[] bytes = new byte[piece.bytes.length + 1];
             fileHandler.set(piece.bytes, piece.pieceIndex * state.commonInfo.pieceSize);
             gotHavePieceIndexes.remove(Integer.valueOf(piece.pieceIndex));
-            logger.download(state.peerID, peerID, piece.pieceIndex, state.getHaveCounter(state.peerID));
+            logger.downloadedPiece(state.peerID, peerID, piece.pieceIndex, state.getHaveCounter(state.peerID));
             sendHave(piece.pieceIndex);
             sendRequest();
         } catch (IOException e) {
@@ -217,7 +219,7 @@ public class PeerHandler implements Runnable {
 
     private void handleHave() throws IOException {
         int have = io.readHave();
-        logger.have(state.peerID, peerID, have);
+        logger.receivedHave(state.peerID, peerID, have);
         state.setHavePiece(peerID, have);
         if (state.getStatusOfPiece(state.peerID, have) == PieceStatus.MISSING) {
             if (!gotHavePieceIndexes.contains(have)) {

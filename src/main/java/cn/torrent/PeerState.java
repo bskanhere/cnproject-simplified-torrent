@@ -1,8 +1,10 @@
 package cn.torrent;
 
+import cn.torrent.config.CommonInfo;
+import cn.torrent.config.PeerInfo;
+import cn.torrent.config.PeersInfo;
 import cn.torrent.enums.ChokeStatus;
 import cn.torrent.enums.PieceStatus;
-import cn.torrent.exceptions.HavePieceException;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +14,9 @@ public class PeerState {
     public final int numPieces;
     public final CommonInfo commonInfo;
     private final PeersInfo peersInfo;
-    private final HashMap<Integer, BitField> bitFieldMap = new HashMap<>();
+    private final HashMap<Integer, ArrayList<PieceStatus>> bitField = new HashMap<>();
+    private final HashMap<Integer,Integer> pieceCounter = new HashMap<>();
+
     private final ArrayList<Integer> interested = new ArrayList<>();
     private final ArrayList<DownloadCounterPeerIdPair> downloadCounterList = new ArrayList<>();
     public final ConcurrentHashMap<Integer, ChokeStatus> neighbourChokeStatus =
@@ -20,7 +24,6 @@ public class PeerState {
     private Random random = new Random();
     public final ConcurrentHashMap<Integer, ChokeStatus> myChokeStatus = new ConcurrentHashMap<>();
     public final HashMap<Integer, MessageIO> IOHandlers;
-    private boolean allDone = false;
     private int doneCounter = 0;
 
     private PeerState(
@@ -35,10 +38,16 @@ public class PeerState {
         numPieces =
                 commonInfo.fileSize / commonInfo.pieceSize
                         + (commonInfo.fileSize % commonInfo.pieceSize == 0 ? 0 : 1);
-        for (PeerInfo peerInfo : peersInfo.peerInfoList) {
-            BitField bitField = BitField.from(numPieces, peerInfo.hasFile);
-            if (peerInfo.hasFile) doneCounter++;
-            bitFieldMap.put(peerInfo.peerID, bitField);
+        for (PeerInfo peerInfo : peersInfo.peerList) {
+            ArrayList<PieceStatus> bitset = new ArrayList<>(Arrays.asList(new PieceStatus[numPieces]));
+            if (peerInfo.hasFile) {
+                pieceCounter.put(peerInfo.peerID, numPieces);
+                Collections.fill(bitset, PieceStatus.HAVE);
+                doneCounter++;
+            } else {
+                Collections.fill(bitset, PieceStatus.MISSING);
+            }
+            bitField.put(peerInfo.peerID, bitset);
             if (peerInfo.peerID != peerID) {
                 neighbourChokeStatus.put(peerInfo.peerID, ChokeStatus.CHOKED);
                 myChokeStatus.put(peerInfo.peerID, ChokeStatus.CHOKED);
@@ -50,47 +59,49 @@ public class PeerState {
     public static PeerState from(
             final int peerID,
             final CommonInfo commonInfo,
-            final PeersInfo peerInfo, final HashMap<Integer, MessageIO> IOHandlers) {
-        return new PeerState(peerID, commonInfo, peerInfo, IOHandlers);
+            final PeersInfo peersInfo, final HashMap<Integer, MessageIO> IOHandlers) {
+        return new PeerState(peerID, commonInfo, peersInfo, IOHandlers);
     }
 
     public ArrayList<PeerInfo> getPeersInfo() {
-        return peersInfo.peerInfoList;
-    }
-
-    public synchronized void setRequestedPiece(final int peerID, final int index) {
-        try {
-            bitFieldMap.get(peerID).setRequested(index);
-        } catch (HavePieceException e) {
-            e.printStackTrace();
-            System.out.println(peerID + " Already has piece " + index);
-        }
+        return peersInfo.peerList;
     }
 
     public synchronized void setHavePiece(final int peerID, final int index) {
-        BitField bitField = bitFieldMap.get(peerID);
-        try {
-            bitField.setHave(index);
-        } catch (HavePieceException e) {
-            e.printStackTrace();
-            System.out.println(peerID + " Already has piece " + index);
-            return;
+        ArrayList<PieceStatus> peerPieceStatus = bitField.get(peerID);
+        if (peerPieceStatus.get(index) != PieceStatus.HAVE) {
+            peerPieceStatus.set(index, PieceStatus.HAVE);
+            pieceCounter.put(peerID, pieceCounter.getOrDefault(peerID, 0)+1);
         }
-        if (bitField.isFull()) {
+        if (pieceCounter.get(peerID) == numPieces) {
             doneCounter++;
-            if (doneCounter == peersInfo.size()) {
-                allDone = true;
+        }
+    }
+
+    public synchronized byte[] getBitFieldOfPeer(final int peerID) {
+        byte[] set = new byte[numPieces];
+        for (int i = 0; i < numPieces; i++) {
+            if (bitField.get(peerID).get(i) == PieceStatus.HAVE) {
+                set[i] = 1;
+            }
+        }
+        return set;
+    }
+
+    public synchronized void setBitFieldOfPeer(final int peerID, byte[] bytes) {
+        pieceCounter.put(peerID, 0);
+        for (int i = 0; i < numPieces; i++) {
+            if (bytes[i] == 1) {
+                bitField.get(peerID).set(i, PieceStatus.HAVE);
+                pieceCounter.put(peerID, pieceCounter.get(peerID) + 1);
+            } else {
+                bitField.get(peerID).set(i, PieceStatus.MISSING);
             }
         }
     }
 
-    public synchronized BitField getBitFieldOfPeer(final int peerID) {
-        return bitFieldMap.get(peerID);
-    }
-
     public synchronized PieceStatus getStatusOfPiece(final int peerID, final int index) {
-        BitField bitField = bitFieldMap.get(peerID);
-        return bitField.getStatus(index);
+        return bitField.get(peerID).get(index);
     }
 
     public MessageIO getIOHandlerPeer(final int peerID) {
@@ -98,33 +109,26 @@ public class PeerState {
     }
 
     public synchronized boolean areAllDone() {
-        return allDone;
+        return doneCounter == peersInfo.size();
     }
 
     public synchronized boolean checkMissingAndRequestIt(final int peerID, final int index) {
-        BitField bitField = bitFieldMap.get(peerID);
-        if (bitField.getStatus(index) == PieceStatus.MISSING) {
-            try {
-                bitField.setRequested(index);
+        if (bitField.get(peerID).get(index) == PieceStatus.MISSING ) {
+            if(bitField.get(peerID).get(index) != PieceStatus.HAVE) {
+                bitField.get(peerID).set(index, PieceStatus.REQUESTED);
                 return true;
-            } catch (HavePieceException e) {
-                e.printStackTrace();
             }
         }
         return false;
     }
 
     public synchronized void setMissingPiece(final int peerID, final int index) {
-        BitField bitField = bitFieldMap.get(peerID);
-        try {
-            bitField.setMissing(index);
-        } catch (HavePieceException e) {
-            e.printStackTrace();
-        }
+        if(bitField.get(peerID).get(index) != PieceStatus.HAVE)
+            bitField.get(peerID).set(index, PieceStatus.MISSING);
     }
 
     public synchronized int getHaveCounter(final int peerID) {
-        return bitFieldMap.get(peerID).haveCounter;
+        return pieceCounter.get(peerID);
     }
 
     public synchronized void incrementDownloadCounter(final int peerID) {

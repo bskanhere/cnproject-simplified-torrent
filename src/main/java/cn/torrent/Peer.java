@@ -1,5 +1,8 @@
 package cn.torrent;
 
+import cn.torrent.config.CommonInfo;
+import cn.torrent.config.PeerInfo;
+import cn.torrent.config.PeersInfo;
 import cn.torrent.enums.ChokeStatus;
 import cn.torrent.exceptions.HandShakeException;
 
@@ -157,13 +160,25 @@ public class Peer {
             }
         }
     }
-
-    private void sendBitField() {
+    //TODO
+    /*private void sendBitField() {
         for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
             try {
                 BitField myBitField = state.getBitFieldOfPeer(peerID);
                 set.getValue().writeBitField(myBitField);
                 logger.sendBitField(set.getKey(), myBitField);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }*/
+
+    private void sendBitField() {
+        for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
+            try {
+                byte[] bitFieldOfPeer = state.getBitFieldOfPeer(peerID);
+                set.getValue().writeBitField(bitFieldOfPeer);
+                logger.sendBitField(set.getKey());
             } catch (IOException e) {
                 e.printStackTrace();
             }

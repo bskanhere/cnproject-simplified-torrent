@@ -1,10 +1,11 @@
 package cn.torrent.Util;
 
-import cn.torrent.PeerInfo;
-import cn.torrent.PeersInfo;
+import cn.torrent.config.PeerInfo;
+import cn.torrent.config.PeersInfo;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -12,6 +13,9 @@ public class PeersInfoTest {
 
   public final String peerInfoFilePath = "src/test/resources/PeerInfoTestData.cfg";
   PeersInfo peersInfo = PeersInfo.from(peerInfoFilePath);
+
+  public PeersInfoTest() throws IOException {
+  }
 
   @Test
   public void readPeerInfoFile() {

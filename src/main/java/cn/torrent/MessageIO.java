@@ -68,9 +68,8 @@ public class MessageIO {
         return byteArray;
     }
 
-    public void writeBitField(final BitField bitField)
+    public void writeBitField(final byte[] byteArray)
             throws IOException {
-        byte[] byteArray = bitField.toByteArray();
         int length = INT_LENGTH + TYPE_LENGTH + byteArray.length;
         ByteBuffer buf = ByteBuffer.allocate(length);
         buf.putInt(byteArray.length);
