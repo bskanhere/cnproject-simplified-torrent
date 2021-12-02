@@ -12,19 +12,18 @@ import java.util.*;
 import static cn.torrent.enums.MessageType.*;
 
 public class PeerHandler implements Runnable {
-    private final MessageIO io;
+    private final SocketMessageReadWrite readWrite;
     private final FileHandler fileHandler;
     private final PeerState state;
     private final int peerID;
     private final Logger logger;
-    private final ArrayList<Integer> gotHavePieceIndexes = new ArrayList<>();
+    private final ArrayList<Integer> havePieces = new ArrayList<>();
     private final ArrayList<Integer> requested = new ArrayList<>();
 
-    public PeerHandler(final PeerState state, int peerID, FileHandler fileHandler, Logger logger)
-            throws IOException {
+    public PeerHandler(final PeerState state, int peerID, FileHandler fileHandler, Logger logger) {
         this.state = state;
         this.fileHandler = fileHandler;
-        this.io = state.getIOHandlerPeer(peerID);
+        this.readWrite = state.getIOHandlerPeer(peerID);
         this.peerID = peerID;
         this.logger = logger;
     }
@@ -36,8 +35,8 @@ public class PeerHandler implements Runnable {
                 MessageType type = UNDEFINED;
                 int len = 0;
                 try {
-                    len = io.readInt();
-                    byte temp = (io.readByte());
+                    len = readWrite.readInt();
+                    byte temp = (readWrite.readByte());
                     for (MessageType val : values()) {
                         if (val.value == temp)
                             type = val;
@@ -66,7 +65,7 @@ public class PeerHandler implements Runnable {
                         break;
                     }
                     case UNCHOKE: {
-                        handleUnchoke();
+                        handleUnChoke();
                         break;
                     }
                     case REQUEST: {
@@ -87,7 +86,6 @@ public class PeerHandler implements Runnable {
                 }
                 logger.flush();
             }
-            //logger.finishHandle(state.peerID, peerID);
             logger.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -96,20 +94,17 @@ public class PeerHandler implements Runnable {
     }
 
     private void handleBitField(int len) throws IOException {
-        byte[] bitFieldBytes = io.readBitField(len);
-        //BitField receivedBitField = state.getBitFieldOfPeer(peerID);
-        //receivedBitField.setBitField(bitFieldBytes);
+        byte[] bitFieldBytes = readWrite.readBitField(len);
         state.setBitFieldOfPeer(peerID, bitFieldBytes);
-        //logger.gotBitField(peerID, receivedBitField);
         logger.receivedBitField(peerID);
-        boolean amIInterested = false;
+        boolean interested = false;
         if (state.getHaveCounter(peerID) == state.numPieces) {
             for (int i = 0; i < state.numPieces; i++) {
-                gotHavePieceIndexes.add(i);
+                havePieces.add(i);
             }
-            amIInterested = true;
+            interested = true;
         }
-        if (amIInterested) {
+        if (interested) {
             sendInterested();
         } else {
             sendNotInterested();
@@ -118,17 +113,17 @@ public class PeerHandler implements Runnable {
 
     private void sendInterested() throws IOException {
         logger.sendInterested(state.peerID, peerID);
-        io.writeInterested();
+        readWrite.writeInterested();
     }
 
-    private void handleInterested() throws IOException {
+    private void handleInterested() {
         logger.receivedInterested(state.peerID, peerID);
         state.addInterested(peerID);
     }
 
     private void sendHave(final int index) throws IOException {
-        HashMap<Integer, MessageIO> ios = state.IOHandlers;
-        for (Map.Entry<Integer, MessageIO> set : ios.entrySet()) {
+        HashMap<Integer, SocketMessageReadWrite> ios = state.IOHandlers;
+        for (Map.Entry<Integer, SocketMessageReadWrite> set : ios.entrySet()) {
             set.getValue().writeHave(index);
             logger.sendHave(set.getKey(), index);
         }
@@ -136,14 +131,14 @@ public class PeerHandler implements Runnable {
 
     private void sendNotInterested() throws IOException {
         logger.sendNotInterested(state.peerID, peerID);
-        io.writeNotInterested();
+        readWrite.writeNotInterested();
     }
 
-    private void handleNotInterested() throws IOException {
+    private void handleNotInterested() {
         logger.receivedNotInterested(state.peerID, peerID);
     }
 
-    private void handleUnchoke() throws IOException {
+    private void handleUnChoke() throws IOException {
         logger.receivedUnChoke(state.peerID, peerID);
         state.myChokeStatus.put(peerID, ChokeStatus.UNCHOKED);
         sendRequest();
@@ -161,18 +156,18 @@ public class PeerHandler implements Runnable {
     private void sendRequest() throws IOException {
         if (state.myChokeStatus.get(peerID) == ChokeStatus.UNCHOKED) {
 
-            Optional<Integer> requestIndex = getAPieceToRequest();
+            Optional<Integer> requestIndex = findAPieceToRequest();
             if (requestIndex.isPresent()) {
-                io.writeRequest(requestIndex.get());
+                readWrite.writeRequest(requestIndex.get());
                 requested.add(requestIndex.get());
                 logger.sendRequest(peerID, requestIndex.get());
             }
         }
     }
 
-    private Optional<Integer> getAPieceToRequest() {
-        Collections.shuffle(gotHavePieceIndexes);
-        for (int havePiece : gotHavePieceIndexes) {
+    private Optional<Integer> findAPieceToRequest() {
+        Collections.shuffle(havePieces);
+        for (int havePiece : havePieces) {
             boolean requested = state.checkMissingAndRequestIt(state.peerID, havePiece);
             if (requested) {
                 return Optional.of(havePiece);
@@ -182,7 +177,7 @@ public class PeerHandler implements Runnable {
     }
 
     private void handleRequest() throws IOException {
-        int requestIndex = io.readRequest();
+        int requestIndex = readWrite.readRequest();
         logger.receivedRequest(peerID, requestIndex);
         if (state.neighbourChokeStatus.get(peerID) == ChokeStatus.UNCHOKED) {
             sendPiece(requestIndex);
@@ -191,9 +186,9 @@ public class PeerHandler implements Runnable {
 
     private void sendPiece(int requestIndex) {
         byte[] pieceBytes =
-                fileHandler.get(requestIndex * state.commonConfig.pieceSize, state.commonConfig.pieceSize);
+                fileHandler.getBytes(requestIndex * state.commonConfig.pieceSize, state.commonConfig.pieceSize);
         try {
-            io.writePiece(new Piece(requestIndex, pieceBytes));
+            readWrite.writePiece(new Piece(requestIndex, pieceBytes));
             logger.sentPiece(peerID, requestIndex);
         } catch (IOException e) {
             e.printStackTrace();
@@ -202,13 +197,13 @@ public class PeerHandler implements Runnable {
 
     private void handlePiece(final int len) {
         try {
-            Piece piece = io.readPiece(len);
+            Piece piece = readWrite.readPiece(len);
             state.incrementDownloadCounter(peerID);
             state.setHavePiece(state.peerID, piece.pieceIndex);
             requested.remove(Integer.valueOf(piece.pieceIndex));
             byte[] bytes = new byte[piece.bytes.length + 1];
-            fileHandler.set(piece.bytes, piece.pieceIndex * state.commonConfig.pieceSize);
-            gotHavePieceIndexes.remove(Integer.valueOf(piece.pieceIndex));
+            fileHandler.setBytes(piece.bytes, piece.pieceIndex * state.commonConfig.pieceSize);
+            havePieces.remove(Integer.valueOf(piece.pieceIndex));
             logger.downloadedPiece(state.peerID, peerID, piece.pieceIndex, state.getHaveCounter(state.peerID));
             sendHave(piece.pieceIndex);
             sendRequest();
@@ -218,15 +213,15 @@ public class PeerHandler implements Runnable {
     }
 
     private void handleHave() throws IOException {
-        int have = io.readHave();
+        int have = readWrite.readHave();
         logger.receivedHave(state.peerID, peerID, have);
         state.setHavePiece(peerID, have);
         if (state.getStatusOfPiece(state.peerID, have) == PieceStatus.MISSING) {
-            if (!gotHavePieceIndexes.contains(have)) {
-                gotHavePieceIndexes.add(have);
+            if (!havePieces.contains(have)) {
+                havePieces.add(have);
             }
         }
-        if (gotHavePieceIndexes.size() > 0) {
+        if (havePieces.size() > 0) {
             sendInterested();
         } else {
             sendNotInterested();

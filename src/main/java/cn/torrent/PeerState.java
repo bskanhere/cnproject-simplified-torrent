@@ -16,21 +16,19 @@ public class PeerState {
     private final PeersConfig peersConfig;
     private final HashMap<Integer, ArrayList<PieceStatus>> bitField = new HashMap<>();
     private final HashMap<Integer,Integer> pieceCounter = new HashMap<>();
-
     private final ArrayList<Integer> interested = new ArrayList<>();
     private final ArrayList<DownloadCounterPeerIdPair> downloadCounterList = new ArrayList<>();
-    public final ConcurrentHashMap<Integer, ChokeStatus> neighbourChokeStatus =
-            new ConcurrentHashMap<>();
+    public final ConcurrentHashMap<Integer, ChokeStatus> neighbourChokeStatus = new ConcurrentHashMap<>();
     private Random random = new Random();
     public final ConcurrentHashMap<Integer, ChokeStatus> myChokeStatus = new ConcurrentHashMap<>();
-    public final HashMap<Integer, MessageIO> IOHandlers;
+    public final HashMap<Integer, SocketMessageReadWrite> IOHandlers;
     private int doneCounter = 0;
 
     private PeerState(
             final int peerID,
             final CommonConfig commonConfig,
             final PeersConfig peersConfig,
-            HashMap<Integer, MessageIO> IOHandlers) {
+            HashMap<Integer, SocketMessageReadWrite> IOHandlers) {
         this.peerID = peerID;
         this.commonConfig = commonConfig;
         this.peersConfig = peersConfig;
@@ -38,7 +36,7 @@ public class PeerState {
         numPieces =
                 commonConfig.fileSize / commonConfig.pieceSize
                         + (commonConfig.fileSize % commonConfig.pieceSize == 0 ? 0 : 1);
-        for (PeerInfo peerInfo : peersConfig.peerList) {
+        for (PeerInfo peerInfo : peersConfig.peersList) {
             ArrayList<PieceStatus> bitset = new ArrayList<>(Arrays.asList(new PieceStatus[numPieces]));
             if (peerInfo.hasFile) {
                 pieceCounter.put(peerInfo.peerID, numPieces);
@@ -59,12 +57,12 @@ public class PeerState {
     public static PeerState from(
             final int peerID,
             final CommonConfig commonConfig,
-            final PeersConfig peersConfig, final HashMap<Integer, MessageIO> IOHandlers) {
+            final PeersConfig peersConfig, final HashMap<Integer, SocketMessageReadWrite> IOHandlers) {
         return new PeerState(peerID, commonConfig, peersConfig, IOHandlers);
     }
 
     public ArrayList<PeerInfo> getPeersConfig() {
-        return peersConfig.peerList;
+        return peersConfig.peersList;
     }
 
     public synchronized void setHavePiece(final int peerID, final int index) {
@@ -104,7 +102,7 @@ public class PeerState {
         return bitField.get(peerID).get(index);
     }
 
-    public MessageIO getIOHandlerPeer(final int peerID) {
+    public SocketMessageReadWrite getIOHandlerPeer(final int peerID) {
         return IOHandlers.get(peerID);
     }
 

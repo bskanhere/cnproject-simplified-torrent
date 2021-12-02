@@ -1,7 +1,7 @@
 package cn.torrent.tasks;
 
 import cn.torrent.Logger;
-import cn.torrent.MessageIO;
+import cn.torrent.SocketMessageReadWrite;
 import cn.torrent.PeerState;
 
 import java.io.IOException;
@@ -21,7 +21,7 @@ public class SelectOptimisticallyUnChokedNeighborTimer extends TimerTask {
     public void run() {
         Optional<Integer> optimisticUnchokedPeer = state.updateOptimisticNeighbor();
         if (optimisticUnchokedPeer.isPresent()) {
-            MessageIO io = state.getIOHandlerPeer(optimisticUnchokedPeer.get());
+            SocketMessageReadWrite io = state.getIOHandlerPeer(optimisticUnchokedPeer.get());
             try {
                 io.writeUnChoke();
                 logger.changesOptimisticallyUnChokedNeighbor(state.peerID, optimisticUnchokedPeer.get());

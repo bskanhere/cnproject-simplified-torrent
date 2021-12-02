@@ -9,16 +9,15 @@ import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 
-public class MessageIO {
+public class SocketMessageReadWrite {
     public static final int INT_LENGTH = 4;
     public static final int TYPE_LENGTH = 1;
     private static final String HANDSHAKE_HEADER = "P2PFILESHARINGPROJ0000000000";
-
     private final DataInputStream in;
     private final DataOutputStream out;
     private final Socket socket;
 
-    public MessageIO(final Socket socket) throws IOException {
+    public SocketMessageReadWrite(final Socket socket) throws IOException {
         this.socket = socket;
         this.socket.setSoTimeout(1000);
         this.in = new DataInputStream(socket.getInputStream());
@@ -59,15 +58,6 @@ public class MessageIO {
         return in.readInt();
     }
 
-    public byte[] readBitField(final int length) throws IOException {
-        byte[] byteArray = new byte[length];
-        int read = in.read(byteArray);
-        if (read != length) {
-            System.out.println("bit field read missing");
-        }
-        return byteArray;
-    }
-
     public void writeBitField(final byte[] byteArray)
             throws IOException {
         int length = INT_LENGTH + TYPE_LENGTH + byteArray.length;
@@ -78,8 +68,13 @@ public class MessageIO {
         out.write(buf.array());
     }
 
-    public int readHave() throws IOException {
-        return in.readInt();
+    public byte[] readBitField(final int length) throws IOException {
+        byte[] byteArray = new byte[length];
+        int read = in.read(byteArray);
+        if (read != length) {
+            System.out.println("bit field read missing");
+        }
+        return byteArray;
     }
 
     public void writeHave(final int haveIndex) throws IOException {
@@ -91,7 +86,7 @@ public class MessageIO {
         out.write(buf.array());
     }
 
-    public int readRequest() throws IOException {
+    public int readHave() throws IOException {
         return in.readInt();
     }
 
@@ -104,14 +99,8 @@ public class MessageIO {
         out.write(buf.array());
     }
 
-    public Piece readPiece(final int length) throws IOException {
-        byte[] bytes = new byte[length - INT_LENGTH];
-        int pieceIndex = in.readInt();
-        int read = in.read(bytes);
-        if (read != length - INT_LENGTH) {
-            System.out.println("error reading piece");
-        }
-        return new Piece(pieceIndex, bytes);
+    public int readRequest() throws IOException {
+        return in.readInt();
     }
 
     public void writePiece(final Piece piece) throws IOException {
@@ -122,6 +111,16 @@ public class MessageIO {
         buf.putInt(piece.pieceIndex);
         buf.put(piece.bytes);
         out.write(buf.array());
+    }
+
+    public Piece readPiece(final int length) throws IOException {
+        byte[] bytes = new byte[length - INT_LENGTH];
+        int pieceIndex = in.readInt();
+        int read = in.read(bytes);
+        if (read != length - INT_LENGTH) {
+            System.out.println("error reading piece");
+        }
+        return new Piece(pieceIndex, bytes);
     }
 
     public synchronized void writeChoke() throws IOException {

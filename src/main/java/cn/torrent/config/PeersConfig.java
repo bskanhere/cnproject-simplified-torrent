@@ -5,48 +5,27 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class PeersConfig {
 
-    public final ArrayList<PeerInfo> peerList = new ArrayList<>();
+    public final ArrayList<PeerInfo> peersList = new ArrayList<>();
 
     private PeersConfig(final ArrayList<PeerInfo> peersInfoList) {
-        peerList.addAll(peersInfoList);
+        peersList.addAll(peersInfoList);
     }
 
     public Optional<PeerInfo> get(final int peerID) {
-        return peerList.stream().filter(s -> s.peerID == peerID).findFirst();
+        return peersList.stream().filter(s -> s.peerID == peerID).findFirst();
+    }
+
+    public List<PeerInfo> getPeersList() {
+        return peersList;
     }
 
     public int size() {
-        return peerList.size();
-    }
-
-    public ArrayList<PeerInfo> before(final int beforeMe) {
-        ArrayList<PeerInfo> res = new ArrayList<>();
-        for (PeerInfo peer : peerList) {
-            if (peer.peerID == beforeMe) break;
-            else {
-                res.add(peer);
-            }
-        }
-        return res;
-    }
-
-    public ArrayList<PeerInfo> after(final int afterMe) {
-        ArrayList<PeerInfo> res = new ArrayList<>();
-        boolean found = false;
-        for (PeerInfo peer : peerList) {
-            if (peer.peerID == afterMe) {
-                found = true;
-                continue;
-            }
-            if (found) {
-                res.add(peer);
-            }
-        }
-        return res;
+        return peersList.size();
     }
 
     public static PeersConfig from(final String peerInfoFilePath) throws IOException {

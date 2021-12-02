@@ -1,7 +1,7 @@
 package cn.torrent.tasks;
 
 import cn.torrent.Logger;
-import cn.torrent.MessageIO;
+import cn.torrent.SocketMessageReadWrite;
 import cn.torrent.PeerState;
 import cn.torrent.config.PeerInfo;
 import cn.torrent.enums.ChokeStatus;
@@ -26,7 +26,7 @@ public class SelectPreferredNeighborTimer extends TimerTask {
         List<Integer> preferredNeighbors = new ArrayList<>();
         for (PeerInfo peerInfo : state.getPeersConfig()) {
             if (peerInfo.peerID == state.peerID) continue;
-            MessageIO io = state.getIOHandlerPeer(peerInfo.peerID);
+            SocketMessageReadWrite io = state.getIOHandlerPeer(peerInfo.peerID);
             try {
                 if (state.neighbourChokeStatus.get(peerInfo.peerID) == ChokeStatus.CHOKED) {
                     io.writeChoke();

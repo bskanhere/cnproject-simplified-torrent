@@ -18,10 +18,10 @@ public class Peer {
     private final Logger logger;
     private final PeersConfig peersConfig;
     private final int peerID;
-    private final ArrayList<Thread> threadPool;
-    private final ArrayList<MessageIO> serverIOHandlers = new ArrayList<>();
-    private final ArrayList<MessageIO> IOHandlers = new ArrayList<>();
-    private HashMap<Integer, MessageIO> IOHandlersMap = new HashMap<>();
+    private final ArrayList<Thread> peerHandlerThreadPool;
+    private final ArrayList<SocketMessageReadWrite> serverReadWriteHandlers = new ArrayList<>();
+    private final ArrayList<SocketMessageReadWrite> readWriteHandlers = new ArrayList<>();
+    private HashMap<Integer, SocketMessageReadWrite> readWriteHandlersMap = new HashMap<>();
     private PeerState state;
 
     public Peer(
@@ -33,7 +33,7 @@ public class Peer {
         this.commonConfig = commonConfig;
         this.peersConfig = peersConfig;
         this.logger = new Logger(logPath);
-        this.threadPool = new ArrayList<>();
+        this.peerHandlerThreadPool = new ArrayList<>();
     }
 
     public void run() {
@@ -42,11 +42,27 @@ public class Peer {
             throw new IllegalArgumentException("peerID is invalid");
         }
 
-        ArrayList<PeerInfo> serversBefore = peersConfig.before(peerID);
-        ArrayList<PeerInfo> serversAfter = peersConfig.after(peerID);
+        ArrayList<PeerInfo> serversBefore = new ArrayList<>();
+        for (PeerInfo peer : peersConfig.getPeersList()) {
+            if (peer.peerID == peerID) break;
+            else {
+                serversBefore.add(peer);
+            }
+        }
+        ArrayList<PeerInfo> serversAfter = new ArrayList<>();
+        boolean found = false;
+        for (PeerInfo peer : peersConfig.getPeersList()) {
+            if (peer.peerID == peerID) {
+                found = true;
+                continue;
+            }
+            if (found) {
+                serversAfter.add(peer);
+            }
+        }
 
-        Acceptor acceptor = new Acceptor(currentPeerInfo.get().port, serversAfter.size(), serverIOHandlers);
-        Thread acceptThread = new Thread(acceptor);
+        ConnectionAcceptor connectionAcceptor = new ConnectionAcceptor(currentPeerInfo.get().port, serversAfter.size(), serverReadWriteHandlers);
+        Thread acceptThread = new Thread(connectionAcceptor);
         acceptThread.start();
 
         makeConnections(serversBefore);
@@ -57,24 +73,21 @@ public class Peer {
             e.printStackTrace();
         }
 
-        IOHandlers.addAll(serverIOHandlers);
+        readWriteHandlers.addAll(serverReadWriteHandlers);
 
         performHandshake(currentPeerInfo.get(), serversAfter);
 
-        state = PeerState.from(peerID, commonConfig, peersConfig, IOHandlersMap);
+        state = PeerState.from(peerID, commonConfig, peersConfig, readWriteHandlersMap);
 
         sendBitField();
 
         FileHandler fileHandler = new FileHandler(commonConfig.fileName);
-        for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
-            try {
-                PeerHandler peerHandler = new PeerHandler(state, set.getKey(), fileHandler, logger);
-                Thread thread = new Thread(peerHandler);
-                thread.setName("p" + peerID + "h" + set.getKey());
-                threadPool.add(thread);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+
+        for (Map.Entry<Integer, SocketMessageReadWrite> set : readWriteHandlersMap.entrySet()) {
+            PeerHandler peerHandler = new PeerHandler(state, set.getKey(), fileHandler, logger);
+            Thread thread = new Thread(peerHandler);
+            thread.setName("peer:" + peerID + ":handler:" + set.getKey());
+            peerHandlerThreadPool.add(thread);
         }
 
         Timer preferredNeighbourTimer = new Timer();
@@ -84,15 +97,16 @@ public class Peer {
                 new SelectPreferredNeighborTimer(state, logger),
                 0,
                 commonConfig.unChokingInterval * 1000);
+
         optimisticNeighbourTimer.scheduleAtFixedRate(
                 new SelectOptimisticallyUnChokedNeighborTimer(state, logger),
                 0,
                 commonConfig.optimisticUnChokingInterval * 1000);
 
-        for (Thread thread : threadPool) {
+        for (Thread thread : peerHandlerThreadPool) {
             thread.start();
         }
-        for (Thread thread : threadPool) {
+        for (Thread thread : peerHandlerThreadPool) {
             try {
                 thread.join();
             } catch (InterruptedException e) {
@@ -101,14 +115,13 @@ public class Peer {
         }
         preferredNeighbourTimer.cancel();
         optimisticNeighbourTimer.cancel();
-        for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
+        for (Map.Entry<Integer, SocketMessageReadWrite> set : readWriteHandlersMap.entrySet()) {
             try {
                 set.getValue().close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-
         logger.complete(peerID);
         logger.close();
     }
@@ -121,7 +134,7 @@ public class Peer {
         for (PeerInfo peerServerInfo : servers) {
             try {
                 Socket clientSocket = connect(peerServerInfo.ipAddress, peerServerInfo.port);
-                IOHandlers.add(new MessageIO(clientSocket));
+                readWriteHandlers.add(new SocketMessageReadWrite(clientSocket));
                 logger.makesConnection(peerID, peerServerInfo.peerID);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -133,8 +146,7 @@ public class Peer {
     }
 
     private void performHandshake(final PeerInfo currentPeerInfo, final ArrayList<PeerInfo> after) {
-        // Send handshake
-        for (MessageIO io : IOHandlers) {
+        for (SocketMessageReadWrite io : readWriteHandlers) {
             try {
                 io.writeHandShakeMessage(currentPeerInfo.peerID);
             } catch (IOException e) {
@@ -142,10 +154,10 @@ public class Peer {
             }
         }
 
-        for (MessageIO io : IOHandlers) {
+        for (SocketMessageReadWrite io : readWriteHandlers) {
             try {
                 int receivedPeerID = io.readHandShakeMessage();
-                IOHandlersMap.put(receivedPeerID, io);
+                readWriteHandlersMap.put(receivedPeerID, io);
                 Optional<PeerInfo> clientPeer =
                         after.stream().filter(peerInfo -> peerInfo.peerID == receivedPeerID).findFirst();
                 if (clientPeer.isPresent()) {
@@ -158,7 +170,7 @@ public class Peer {
     }
 
     private void sendBitField() {
-        for (Map.Entry<Integer, MessageIO> set : IOHandlersMap.entrySet()) {
+        for (Map.Entry<Integer, SocketMessageReadWrite> set : readWriteHandlersMap.entrySet()) {
             try {
                 byte[] bitFieldOfPeer = state.getBitFieldOfPeer(peerID);
                 set.getValue().writeBitField(bitFieldOfPeer);
@@ -170,15 +182,15 @@ public class Peer {
     }
 }
 
-class Acceptor implements Runnable {
+class ConnectionAcceptor implements Runnable {
     final int port;
     int expectedConnections;
-    final ArrayList<MessageIO> ioHandlers;
+    final ArrayList<SocketMessageReadWrite> readWriteHandlers;
 
-    Acceptor(int port, int expectedConnections, ArrayList<MessageIO> ioHandlers) {
+    ConnectionAcceptor(int port, int expectedConnections, ArrayList<SocketMessageReadWrite> readWriteHandlers) {
         this.port = port;
         this.expectedConnections = expectedConnections;
-        this.ioHandlers = ioHandlers;
+        this.readWriteHandlers = readWriteHandlers;
     }
 
     @Override
@@ -187,7 +199,7 @@ class Acceptor implements Runnable {
             ServerSocket serverSocket = new ServerSocket(port, 200);
             while (expectedConnections-- > 0) {
                 Socket clientSocket = serverSocket.accept();
-                ioHandlers.add(new MessageIO(clientSocket));
+                readWriteHandlers.add(new SocketMessageReadWrite(clientSocket));
             }
             serverSocket.close();
         } catch (IOException e) {
