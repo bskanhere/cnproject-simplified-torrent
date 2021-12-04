@@ -5,7 +5,7 @@ import cn.torrent.config.PeersConfig;
 
 import java.io.IOException;
 
-public class PeerProcess {
+public class App {
 
     public static final String PEER_INFO_PATH = "src/main/resources/PeerInfo.cfg";
     public static final String COMMON_CONFIG_PATH = "src/main/resources/Common.cfg";

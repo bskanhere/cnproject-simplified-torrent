@@ -46,12 +46,5 @@ public class FileHandler {
         }
     }
 
-    //TODO
-    public void close() {
-        try {
-            file.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    
 }

@@ -124,11 +124,6 @@ public class Logger {
         printWriter.printf("%s: Peer %s has the optimistically unchoked neighbor %s.\n", LocalDateTime.now(), self, peer);
     }
 
-    public synchronized void error(Exception e) {
-        printWriter.printf(e.getMessage());
-        e.printStackTrace(printWriter);
-    }
-
     public void close() {
         printWriter.close();
     }

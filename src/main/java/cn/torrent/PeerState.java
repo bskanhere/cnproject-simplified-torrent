@@ -15,7 +15,7 @@ public class PeerState {
     public final CommonConfig commonConfig;
     private final PeersConfig peersConfig;
     private final HashMap<Integer, ArrayList<PieceStatus>> bitField = new HashMap<>();
-    private final HashMap<Integer,Integer> pieceCounter = new HashMap<>();
+    private final HashMap<Integer, Integer> pieceCounter = new HashMap<>();
     private final ArrayList<Integer> interested = new ArrayList<>();
     private final ArrayList<DownloadCounterPeerIdPair> downloadCounterList = new ArrayList<>();
     public final ConcurrentHashMap<Integer, ChokeStatus> neighbourChokeStatus = new ConcurrentHashMap<>();
@@ -69,7 +69,7 @@ public class PeerState {
         ArrayList<PieceStatus> peerPieceStatus = bitField.get(peerID);
         if (peerPieceStatus.get(index) != PieceStatus.HAVE) {
             peerPieceStatus.set(index, PieceStatus.HAVE);
-            pieceCounter.put(peerID, pieceCounter.getOrDefault(peerID, 0)+1);
+            pieceCounter.put(peerID, pieceCounter.getOrDefault(peerID, 0) + 1);
         }
         if (pieceCounter.get(peerID) == numPieces) {
             doneCounter++;
@@ -111,8 +111,8 @@ public class PeerState {
     }
 
     public synchronized boolean checkMissingAndRequestIt(final int peerID, final int index) {
-        if (bitField.get(peerID).get(index) == PieceStatus.MISSING ) {
-            if(bitField.get(peerID).get(index) != PieceStatus.HAVE) {
+        if (bitField.get(peerID).get(index) == PieceStatus.MISSING) {
+            if (bitField.get(peerID).get(index) != PieceStatus.HAVE) {
                 bitField.get(peerID).set(index, PieceStatus.REQUESTED);
                 return true;
             }
@@ -121,7 +121,7 @@ public class PeerState {
     }
 
     public synchronized void setMissingPiece(final int peerID, final int index) {
-        if(bitField.get(peerID).get(index) != PieceStatus.HAVE)
+        if (bitField.get(peerID).get(index) != PieceStatus.HAVE)
             bitField.get(peerID).set(index, PieceStatus.MISSING);
     }
 
@@ -188,11 +188,7 @@ class DownloadCounterPeerIdPair implements Comparable<DownloadCounterPeerIdPair>
     DownloadCounterPeerIdPair(int peerID) {
         this.peerID = peerID;
     }
-
-    public int getDownloadedPieces() {
-        return downloadedPieces;
-    }
-
+    
     public void increment() {
         downloadedPieces++;
     }
