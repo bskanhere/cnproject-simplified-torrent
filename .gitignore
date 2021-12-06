@@ -2,8 +2,8 @@
 .idea/
 *.iml
 *.iws
-files/
-logger*.log
+files1001/
+log*.log
 
 #Maven
 log/

@@ -12,7 +12,7 @@ public class FileHandler {
         try {
             file = new RandomAccessFile(filepath, "rw");
         } catch (FileNotFoundException e) {
-            //Todo: add logger
+            System.out.println("File not FOund");
         }
     }
 
@@ -25,7 +25,7 @@ public class FileHandler {
             if (bytesRead == length) {
                 return piece;
             } else if (bytesRead == -1) {
-                System.out.println("cant read from file, index: " + index + " length: " + length);
+                System.out.println("Cannot read from file at index: " + index + " for length: " + length);
             } else {
                 return Arrays.copyOf(piece, bytesRead);
             }

@@ -7,13 +7,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class Logger {
+public class Log {
 
     private PrintWriter printWriter;
 
-    public Logger(final String logFilePath) {
+    public Log(final String filePath) {
         try {
-            printWriter = new PrintWriter(logFilePath);
+            printWriter = new PrintWriter(filePath);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }

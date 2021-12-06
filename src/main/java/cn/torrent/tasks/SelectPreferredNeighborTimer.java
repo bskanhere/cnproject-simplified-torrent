@@ -1,8 +1,8 @@
 package cn.torrent.tasks;
 
-import cn.torrent.Logger;
+import cn.torrent.Log;
 import cn.torrent.SocketMessageReadWrite;
-import cn.torrent.PeerState;
+import cn.torrent.peer.PeerState;
 import cn.torrent.config.PeerInfo;
 import cn.torrent.enums.ChokeStatus;
 
@@ -13,11 +13,11 @@ import java.util.TimerTask;
 
 public class SelectPreferredNeighborTimer extends TimerTask {
     final PeerState state;
-    final Logger logger;
+    final Log log;
 
-    public SelectPreferredNeighborTimer(final PeerState state, Logger logger) {
+    public SelectPreferredNeighborTimer(final PeerState state, Log log) {
         this.state = state;
-        this.logger = logger;
+        this.log = log;
     }
 
     @Override
@@ -30,10 +30,10 @@ public class SelectPreferredNeighborTimer extends TimerTask {
             try {
                 if (state.neighbourChokeStatus.get(peerInfo.peerID) == ChokeStatus.CHOKED) {
                     io.writeChoke();
-                    logger.sendChoke(state.peerID, peerInfo.peerID);
+                    log.sendChoke(state.peerID, peerInfo.peerID);
                 } else {
                     io.writeUnChoke();
-                    logger.sendUnChoke(state.peerID, peerInfo.peerID);
+                    log.sendUnChoke(state.peerID, peerInfo.peerID);
                     preferredNeighbors.add(peerInfo.peerID);
                 }
             } catch (IOException e) {
@@ -41,6 +41,6 @@ public class SelectPreferredNeighborTimer extends TimerTask {
             }
         }
         if (preferredNeighbors.size() > 0)
-            logger.changesPreferredNeighbors(state.peerID, preferredNeighbors);
+            log.changesPreferredNeighbors(state.peerID, preferredNeighbors);
     }
 }
