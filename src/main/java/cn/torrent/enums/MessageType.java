@@ -16,5 +16,4 @@ public enum MessageType {
     MessageType(byte value) {
         this.value = value;
     }
-    //abstract void handle(int len);
 }

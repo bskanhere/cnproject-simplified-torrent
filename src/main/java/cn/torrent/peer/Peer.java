@@ -1,6 +1,8 @@
 package cn.torrent.peer;
 
-import cn.torrent.*;
+import cn.torrent.FileHandler;
+import cn.torrent.Log;
+import cn.torrent.SocketMessageReadWrite;
 import cn.torrent.config.CommonConfig;
 import cn.torrent.config.PeerInfo;
 import cn.torrent.config.PeersConfig;
@@ -41,6 +43,8 @@ public class Peer {
         if (!currentPeerInfo.isPresent()) {
             throw new IllegalArgumentException("peerID is invalid");
         }
+        log.initialised(currentPeerInfo.get().ipAddress, currentPeerInfo.get().port, (commonConfig.fileSize / commonConfig.pieceSize) + 1);
+
 
         ArrayList<PeerInfo> serversBefore = new ArrayList<>();
         for (PeerInfo peer : peersConfig.getPeersList()) {
@@ -78,6 +82,7 @@ public class Peer {
         performHandshake(currentPeerInfo.get(), serversAfter);
 
         state = PeerState.from(peerId, commonConfig, peersConfig, readWriteHandlersMap);
+        log.bitfield(state);
 
         sendBitField();
 
@@ -146,6 +151,7 @@ public class Peer {
     }
 
     private void performHandshake(final PeerInfo currentPeerInfo, final ArrayList<PeerInfo> after) {
+        int i = 0;
         for (SocketMessageReadWrite io : readWriteHandlers) {
             try {
                 io.writeHandShakeMessage(currentPeerInfo.peerID);

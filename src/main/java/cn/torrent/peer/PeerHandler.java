@@ -7,14 +7,14 @@ import cn.torrent.SocketMessageReadWrite;
 import cn.torrent.enums.ChokeStatus;
 import cn.torrent.enums.MessageType;
 import cn.torrent.enums.PieceStatus;
-import cn.torrent.peer.PeerState;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.*;
 
-import static cn.torrent.enums.MessageType.*;
+import static cn.torrent.enums.MessageType.UNDEFINED;
+import static cn.torrent.enums.MessageType.values;
 
 public class PeerHandler implements Runnable {
     private final SocketMessageReadWrite readWrite;
@@ -129,8 +129,10 @@ public class PeerHandler implements Runnable {
     private void sendHave(final int index) throws IOException {
         HashMap<Integer, SocketMessageReadWrite> ios = state.IOHandlers;
         for (Map.Entry<Integer, SocketMessageReadWrite> set : ios.entrySet()) {
-            set.getValue().writeHave(index);
-            log.sendHave(set.getKey(), index);
+            if (!(index > state.numPieces)) {
+                set.getValue().writeHave(index);
+                log.sendHave(set.getKey(), index);
+            }
         }
     }
 
@@ -219,6 +221,7 @@ public class PeerHandler implements Runnable {
 
     private void handleHave() throws IOException {
         int have = readWrite.readHave();
+        if (have > state.numPieces) return;
         log.receivedHave(state.peerID, peerID, have);
         state.setHavePiece(peerID, have);
         if (state.getStatusOfPiece(state.peerID, have) == PieceStatus.MISSING) {

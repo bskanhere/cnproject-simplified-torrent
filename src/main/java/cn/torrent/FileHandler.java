@@ -12,7 +12,7 @@ public class FileHandler {
         try {
             file = new RandomAccessFile(filepath, "rw");
         } catch (FileNotFoundException e) {
-            System.out.println("File not FOund");
+            System.out.println("File not Found");
         }
     }
 
@@ -46,5 +46,5 @@ public class FileHandler {
         }
     }
 
-    
+
 }

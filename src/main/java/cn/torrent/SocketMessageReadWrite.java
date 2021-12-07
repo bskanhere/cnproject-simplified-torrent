@@ -118,7 +118,7 @@ public class SocketMessageReadWrite {
         int pieceIndex = in.readInt();
         int read = in.read(bytes);
         if (read != length - INT_LENGTH) {
-            System.out.println("error reading piece");
+
         }
         return new Piece(pieceIndex, bytes);
     }

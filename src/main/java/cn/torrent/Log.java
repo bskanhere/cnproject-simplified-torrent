@@ -1,5 +1,7 @@
 package cn.torrent;
 
+import cn.torrent.peer.PeerState;
+
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
@@ -26,7 +28,7 @@ public class Log {
 
     public synchronized void isConnected(final int self, final int peer) {
         printWriter.printf(
-                "%s : Peer %s is connected from Peer %s.\n", LocalDateTime.now(), self, peer);
+                "%s : Handshake Complete. Peer %s is now connected from Peer %s.\n", LocalDateTime.now(), self, peer);
     }
 
     public synchronized void sendBitField(final int peer) {
@@ -132,4 +134,12 @@ public class Log {
         printWriter.flush();
     }
 
+    public void initialised(String host, int port, int numPieces) {
+        printWriter.printf("%s : Peer initialised on server %s and port %s with Number of pieces %s.\n", LocalDateTime.now(), host, port, numPieces);
+    }
+
+    public void bitfield(PeerState peerState) {
+        printWriter.printf(
+                "%s : Peer Initialised with bitfield %s.\n", LocalDateTime.now(), peerState.getBitFieldOfPeer(peerState.peerID));
+    }
 }
